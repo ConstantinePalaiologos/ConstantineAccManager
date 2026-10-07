@@ -122,6 +122,12 @@ def restore_normal_profile() -> OperationResult:
     return result
 
 
+def restore_normal_profile_if_idle() -> OperationResult:
+    if presence_mod.get_roblox_processes():
+        return OperationResult.success()
+    return restore_normal_profile()
+
+
 def _apply_dummy_profile() -> OperationResult:
     base = roblox_settings_mod.apply_saved_customizations()
     if base is not None and not base:
@@ -316,6 +322,12 @@ class DummyRamTrimmer:
             thread.join(timeout=1.5)
 
     def _run(self) -> None:
+        try:
+            restored = restore_normal_profile_if_idle()
+            if not restored:
+                print(f"[WARNING] Could not restore normal Roblox settings: {restored.message}")
+        except Exception as exc:
+            print(f"[WARNING] Startup settings restore failed: {type(exc).__name__}: {exc}")
         while not self._stop_evt.is_set():
             try:
                 self.scan_once()

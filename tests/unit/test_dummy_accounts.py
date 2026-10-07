@@ -195,6 +195,30 @@ class RamGuardTests(unittest.TestCase):
         self.assertEqual(self.applied, ["normal"])
 
 
+class StartupRestoreTests(unittest.TestCase):
+    def test_settings_are_restored_when_no_roblox_window_is_running(self):
+        calls = []
+        with patch.object(dummy_accounts.presence_mod, "get_roblox_processes", lambda: {}), \
+                patch.object(
+                    dummy_accounts,
+                    "restore_normal_profile",
+                    lambda: (calls.append(1) or OperationResult.success()),
+                ):
+            self.assertTrue(dummy_accounts.restore_normal_profile_if_idle())
+        self.assertEqual(calls, [1])
+
+    def test_settings_are_left_alone_while_roblox_windows_are_running(self):
+        calls = []
+        with patch.object(dummy_accounts.presence_mod, "get_roblox_processes", lambda: {1: (1.0, object())}), \
+                patch.object(
+                    dummy_accounts,
+                    "restore_normal_profile",
+                    lambda: (calls.append(1) or OperationResult.success()),
+                ):
+            self.assertTrue(dummy_accounts.restore_normal_profile_if_idle())
+        self.assertEqual(calls, [])
+
+
 class FakeProcess:
     def __init__(self, rss_mb):
         self._rss = int(rss_mb * 1024 * 1024)

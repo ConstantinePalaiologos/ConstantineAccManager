@@ -36,9 +36,9 @@ DOWNLOAD_HOST = "github.com"
 # official exe would silently drop them, so self-update is switched off.
 CUSTOM_BUILD = True
 CUSTOM_BUILD_UPDATE_MESSAGE = (
-    "Automatic update is disabled in this custom build because the official "
-    "release does not include the Dummy account feature. Ask Claude to port "
-    "the new version instead."
+    "Automatic update is disabled in Evanovar RAM Enhanced because the "
+    "official release does not include its extra features. Use Manual "
+    "Download to see the new official version, then port the changes."
 )
 PROCESS_WAIT_SECONDS = 120
 REPLACE_WAIT_SECONDS = 30
