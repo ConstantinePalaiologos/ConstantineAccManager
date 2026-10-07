@@ -321,6 +321,20 @@ class _ComboRightClickFilter(QObject):
         return False
 
 
+class _WheelToHorizontalScroll(QObject):
+    # Lets the mouse wheel scroll an area sideways when it has no scroll bar.
+    def __init__(self, area):
+        super().__init__(area)
+        self._bar = area.horizontalScrollBar()
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.Type.Wheel and self._bar.maximum() > 0:
+            delta = event.angleDelta().y() or event.angleDelta().x()
+            self._bar.setValue(self._bar.value() - delta)
+            return True
+        return False
+
+
 class _ActionComboBox(QComboBox):
     action_requested = Signal()
 
@@ -1490,7 +1504,7 @@ class AccountManagerUIQt(QMainWindow): # Main Window
 
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Window)
         self.setWindowTitle("Constantine's Roblox Account Manager")
-        self.setFixedSize(640, 520)
+        self.setFixedSize(780, 520)
         if self._icon_path:
             try:
                 self.setWindowIcon(QIcon(self._icon_path))
@@ -2426,8 +2440,11 @@ class AccountManagerUIQt(QMainWindow): # Main Window
         self._group_scroll.setObjectName("groupScroll")
         self._group_scroll.setWidgetResizable(True)
         self._group_scroll.setFixedHeight(28)
-        self._group_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self._group_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._group_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._group_scroll.viewport().installEventFilter(
+            _WheelToHorizontalScroll(self._group_scroll)
+        )
 
         _group_bar_widget = QWidget()
         _group_bar_widget.setStyleSheet("background: transparent;")
@@ -2439,6 +2456,7 @@ class AccountManagerUIQt(QMainWindow): # Main Window
 
         # account list widget
         self._account_list = QListWidget()
+        self._account_list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._account_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self._account_list.customContextMenuRequested.connect(self._on_account_context_menu)
 
