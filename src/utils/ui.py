@@ -41,7 +41,7 @@ from PySide6.QtWidgets import (
     QMessageBox, QPushButton, QRadioButton, QScrollArea,
     QSizePolicy, QDoubleSpinBox, QSlider, QSpinBox, QStackedWidget, QSystemTrayIcon,
     QTabWidget, QTextEdit, QTreeWidget, QTreeWidgetItem,
-    QToolButton, QVBoxLayout, QWidget,
+    QToolButton, QVBoxLayout, QWidget, QWidgetAction,
     QStyle, QStyleOptionButton,
 )
 from PySide6.QtMultimedia import QMediaPlayer, QVideoSink
@@ -55,12 +55,13 @@ from classes import (
     RobloxAccountManager,
 )
 from classes.encryption import EncryptionConfig, PasswordEncryption
-from classes.operation_result import OperationResult, ensure_result
+from classes.operation_result import OperationResult, ensure_result, unexpected_result
 from classes.roblox_api import RobloxAPI
 
 import features.account_actions as actions
 import features.account_backup as account_backup
 import features.account_creator as account_creator_mod
+import features.account_kill as account_kill_mod
 import features.auto_rejoin as ar
 import features.account_filter as account_filter
 import features.account_order as account_order
@@ -335,6 +336,30 @@ class _WheelToHorizontalScroll(QObject):
         return False
 
 
+DANGER_COLOR = "#EF5350"
+
+
+def _add_danger_action(menu, text, tooltip=""):
+    # A style sheet cannot colour a single menu item, so this one is a flat
+    # button hosted inside the menu.
+    action = QWidgetAction(menu)
+    button = QPushButton(text)
+    button.setFlat(True)
+    button.setToolTip(tooltip)
+    button.setCursor(Qt.CursorShape.PointingHandCursor)
+    button.setStyleSheet(
+        f"QPushButton {{ color: {DANGER_COLOR}; background: transparent;"
+        f"  border: none; text-align: left; font-size: 11px;"
+        f"  min-height: 0px; padding: 4px 26px 4px 12px; }}"
+        f"QPushButton:hover {{ background: {SELECT}; }}"
+    )
+    button.clicked.connect(menu.close)
+    button.clicked.connect(action.trigger)
+    action.setDefaultWidget(button)
+    menu.addAction(action)
+    return action
+
+
 class _ActionComboBox(QComboBox):
     action_requested = Signal()
 
@@ -365,6 +390,7 @@ class _Bridge(QObject):
     account_creator_done = Signal(bool, str) # (success, summary) from account creator
     game_name_ready = Signal(str) # display text for current-place label
     launch_done = Signal(object) # OperationResult from any join/launch worker
+    kill_done = Signal(object) # OperationResult from the account Kill worker
     avatar_ready = Signal(str, object) # (username, image_bytes) from avatar worker
     rejoin_status = Signal(str, str) # (account, status_str) from rejoin worker
     afk_tooltip = Signal(str, int, int) # (message, x, y) pass None to hide
@@ -1426,6 +1452,7 @@ class AccountManagerUIQt(QMainWindow): # Main Window
         self._bridge.account_added.connect(self._on_add_done_main)
         self._bridge.account_creator_done.connect(self._on_account_creator_done)
         self._bridge.launch_done.connect(self._on_launch_and_refresh)
+        self._bridge.kill_done.connect(self._on_kill_done)
         self._bridge.avatar_ready.connect(self._on_avatar_ready)
         self._bridge.rejoin_status.connect(self._on_rejoin_status)
         self._bridge.afk_tooltip.connect(self._on_afk_tooltip_signal)
@@ -7958,6 +7985,58 @@ class AccountManagerUIQt(QMainWindow): # Main Window
         else:
             self._show_operation_error(result)
 
+    def _on_kill_accounts(self, usernames):
+        usernames = [u for u in usernames if u in self.manager.accounts]
+        if not usernames:
+            return
+        if len(usernames) > 1:
+            reply = QMessageBox.question(
+                self,
+                "Kill Roblox",
+                f"Close the Roblox window of {len(usernames)} selected accounts?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+
+        def _worker():
+            try:
+                result = account_kill_mod.kill_accounts(self.manager, usernames)
+            except Exception as exc:
+                result = unexpected_result("Closing Roblox windows", exc)
+            self._bridge.kill_done.emit(result)
+
+        threading.Thread(target=_worker, daemon=True, name="kill-account").start()
+
+    def _on_kill_done(self, result):
+        data = result.data if isinstance(result.data, dict) else {}
+        if not result:
+            self._show_operation_error(result)
+        elif data.get("not_running"):
+            names = ", ".join(data["not_running"])
+            _show_info(
+                self,
+                "Kill",
+                f"No running Roblox window was found for {names}.\n\n"
+                "If it is still loading, wait a moment and try again.",
+            )
+        workers = getattr(self, "_ar_workers", {})
+        rejoining = [
+            name for name in data.get("closed", {})
+            if workers.get(name) is not None and workers[name].is_alive()
+        ]
+        if rejoining:
+            names = ", ".join(rejoining)
+            print(f"[WARNING] Auto-Rejoin is active for {names} and will reopen the window.")
+            _show_info(
+                self,
+                "Auto-Rejoin Is Active",
+                f"Auto-Rejoin is running for {names}, so it will reopen the window "
+                "in a few seconds.\n\nStop Auto-Rejoin for that account first if you "
+                "want it to stay closed.",
+            )
+
     def _emit_launch_done(self, success: bool, result):
         if isinstance(result, OperationResult):
             operation_result = result
@@ -8133,6 +8212,16 @@ class AccountManagerUIQt(QMainWindow): # Main Window
         )
 
         menu.addSeparator()
+        kill_targets = list(multi_sel) if is_multi else [username]
+        act_kill = _add_danger_action(
+            menu,
+            f"Kill ({len(kill_targets)} accounts)" if is_multi else "Kill",
+            "Close only the Roblox window of the selected account(s). "
+            "Other accounts' windows are left running.",
+        )
+        act_kill.triggered.connect(
+            lambda _=False, users=kill_targets: self._on_kill_accounts(users)
+        )
         act_remove = menu.addAction("Remove Account")
 
         chosen = menu.exec(self._account_list.mapToGlobal(pos))
