@@ -23,13 +23,6 @@ saved_accounts.json
 saved_accounts.json.bak
 AccountManagerData/
 *.rambak
-*.bak
-encryption_config.json
-ui_settings.json
-RobloxSettings.json
-crash_logs/
-Chromium/
-.env
 
 # Built executables and local toolchain (never commit binaries)
 *.exe

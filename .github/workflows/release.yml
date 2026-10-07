@@ -44,11 +44,11 @@ jobs:
 
       - name: Verify build output
         run: |
-          if not exist "dist\EvanovarRAM.exe" (
+          if not exist "dist\EvanovarRAMEnhanced.exe" (
             echo Build output missing.
             exit /b 1
           )
-          dir /b "dist\EvanovarRAM-v*.exe" >nul 2>&1
+          dir /b "dist\EvanovarRAMEnhanced-v*.exe" >nul 2>&1
           if errorlevel 1 (
             echo Versioned release asset missing.
             exit /b 1
@@ -59,7 +59,7 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.event.inputs.tag || github.ref_name }}
-          name: Evanovar RAM ${{ github.event.inputs.tag || github.ref_name }}
+          name: Evanovar RAM Enhanced ${{ github.event.inputs.tag || github.ref_name }}
           generate_release_notes: true
           fail_on_unmatched_files: true
-          files: dist/EvanovarRAM-v*.exe
+          files: dist/EvanovarRAMEnhanced-v*.exe
