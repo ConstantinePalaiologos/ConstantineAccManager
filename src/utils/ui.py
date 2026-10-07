@@ -2436,6 +2436,15 @@ class AccountManagerUIQt(QMainWindow): # Main Window
 
         lay.addWidget(self._account_list, 1)
 
+        self._dummy_hint = QLabel(
+            "Tick the box on the right of an account to make it a low-resource "
+            "account: low FPS, minimum graphics, and its memory moved from RAM "
+            "to disk. Set the values under Settings > Dummy."
+        )
+        self._dummy_hint.setWordWrap(True)
+        self._dummy_hint.setStyleSheet(f"color: {MUTED}; font-size: 10px;")
+        lay.addWidget(self._dummy_hint)
+
        # Add and Remove buttons row
         bottom = QHBoxLayout()
         bottom.setSpacing(6)
