@@ -1248,7 +1248,7 @@ class _DetachedPageWindow(QMainWindow):
         self._allow_close = False
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
 
-        self.setWindowTitle(f"{page_name} - Evanovar RAM")
+        self.setWindowTitle(f"{page_name} - Constantine AccManager")
         if not icon.isNull():
             self.setWindowIcon(icon)
         self.setStyleSheet(stylesheet)
@@ -1484,7 +1484,7 @@ class AccountManagerUIQt(QMainWindow): # Main Window
         )
 
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Window)
-        self.setWindowTitle("Evanovar's Roblox Account Manager")
+        self.setWindowTitle("Constantine's Roblox Account Manager")
         self.setFixedSize(640, 520)
         if self._icon_path:
             try:
@@ -2038,7 +2038,7 @@ class AccountManagerUIQt(QMainWindow): # Main Window
                 ico_lbl.setContentsMargins(0, 6, 8, 6)
                 lay.addWidget(ico_lbl)
 
-        title = QLabel("Evanovar's Roblox Account Manager")
+        title = QLabel("Constantine's Roblox Account Manager")
         title.setObjectName("titleText")
         lay.addWidget(title)
         lay.addStretch(1)
@@ -3406,7 +3406,7 @@ class AccountManagerUIQt(QMainWindow): # Main Window
 
         self._sett_tray_chk = _chk(
             "hide_to_system_tray", "Hide to System Tray",
-            "Keep Evanovar RAM running in the system tray when the main window is closed.\n"
+            "Keep Constantine AccManager running in the system tray when the main window is closed.\n"
             "Use the tray icon to show the window again or exit the application.",
             on_change=self._on_sett_tray,
         )
@@ -3593,7 +3593,7 @@ class AccountManagerUIQt(QMainWindow): # Main Window
         self._sett_startup_chk = QCheckBox("Start with Windows")
         self._sett_startup_chk.setChecked(_startup_enabled)
         self._sett_startup_chk.setToolTip(
-            "Start Evanovar RAM automatically when you sign in to Windows.\n"
+            "Start Constantine AccManager automatically when you sign in to Windows.\n"
             "This creates a shortcut in your Windows Startup folder."
         )
         self._sett_startup_chk.stateChanged.connect(self._on_sett_startup)
@@ -6430,7 +6430,7 @@ class AccountManagerUIQt(QMainWindow): # Main Window
             return OperationResult.failure(
                 "SYSTEM_TRAY_UNAVAILABLE",
                 "System Tray Unavailable",
-                "Windows did not provide a system tray for Evanovar RAM.",
+                "Windows did not provide a system tray for Constantine AccManager.",
                 detail="QSystemTrayIcon.isSystemTrayAvailable() returned false.",
             )
 
@@ -6445,7 +6445,7 @@ class AccountManagerUIQt(QMainWindow): # Main Window
                 )
 
             tray_icon = QSystemTrayIcon(icon, self)
-            tray_icon.setToolTip("Evanovar's Roblox Account Manager")
+            tray_icon.setToolTip("Constantine's Roblox Account Manager")
             menu = QMenu(self)
             show_action = QAction("Show UI", self)
             exit_action = QAction("Exit", self)
@@ -8132,14 +8132,18 @@ class AccountManagerUIQt(QMainWindow): # Main Window
         card_lay.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
 
-        title_lbl = QLabel("Support the Creator")
+        title_lbl = QLabel("Support the Original Creator")
         title_lbl.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         title_lbl.setStyleSheet(
             f"font-size: 15px; font-weight: 700; color: {TEXT}; background: transparent;"
         )
         card_lay.addWidget(title_lbl)
 
-        desc_lbl = QLabel("Support the creator by donating via Robux!")
+        desc_lbl = QLabel(
+            "Constantine AccManager is based on Roblox Account Manager by "
+            "Evanovar. These donation options support the original creator, "
+            "Evanovar, not the author of this version. Donate via Robux!"
+        )
         desc_lbl.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         desc_lbl.setWordWrap(True)
         desc_lbl.setStyleSheet(
@@ -9261,7 +9265,7 @@ def main(icon_path: str | None = None) -> int:
         )
         _show_error(
             None,
-            "Evanovar RAM Could Not Start",
+            "Constantine AccManager Could Not Start",
             "The main window could not be created.\n\n"
             f"Details were saved to:\n{crash_path}",
         )

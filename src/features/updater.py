@@ -36,7 +36,7 @@ DOWNLOAD_HOST = "github.com"
 # official exe would silently drop them, so self-update is switched off.
 CUSTOM_BUILD = True
 CUSTOM_BUILD_UPDATE_MESSAGE = (
-    "Automatic update is disabled in Evanovar RAM Enhanced because the "
+    "Automatic update is disabled in Constantine AccManager because the "
     "official release does not include its extra features. Use Manual "
     "Download to see the new official version, then port the changes."
 )
@@ -233,7 +233,7 @@ try {{
     Remove-Item -LiteralPath $UpdateDirectory -Force -ErrorAction SilentlyContinue
     exit 0
 }} catch {{
-    $detail = "Evanovar RAM automatic update failed.`r`n"
+    $detail = "Constantine AccManager automatic update failed.`r`n"
     $detail += "Timestamp: $([DateTime]::Now.ToString('yyyy-MM-dd HH:mm:ss'))`r`n"
     $detail += "Destination: $DestinationPath`r`n"
     $detail += "Error: $($_.Exception.Message)"

@@ -69,7 +69,7 @@ def main():
             fatal=True,
         )
         diagnostics.show_native_error(
-            "Evanovar RAM Could Not Start",
+            "Constantine AccManager Could Not Start",
             "The application encountered an unexpected error.\n\n"
             f"Crash report:\n{crash_path or diagnostics.get_session_log_path()}",
         )

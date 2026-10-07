@@ -12,8 +12,9 @@ from classes.operation_result import OperationResult, unexpected_result
 from utils.app_paths import get_app_dir, get_data_dir, get_resource_path
 
 
-_SHORTCUT_NAME = "Evanovar RAM.lnk"
+_SHORTCUT_NAME = "Constantine AccManager.lnk"
 _START_MENU_SHORTCUT_NAME = "Roblox Account Manager.lnk"
+_LEGACY_SHORTCUT_NAME = "Evanovar RAM.lnk"
 
 
 def get_startup_folder() -> str:
@@ -33,6 +34,18 @@ def get_startup_folder() -> str:
 def get_shortcut_path() -> str:
     startup_folder = get_startup_folder()
     return os.path.join(startup_folder, _SHORTCUT_NAME) if startup_folder else ""
+
+
+def _remove_legacy_shortcut() -> None:
+    startup_folder = get_startup_folder()
+    if not startup_folder:
+        return
+    try:
+        legacy_path = os.path.join(startup_folder, _LEGACY_SHORTCUT_NAME)
+        if os.path.isfile(legacy_path):
+            os.remove(legacy_path)
+    except OSError:
+        pass
 
 
 def is_startup_enabled() -> bool:
@@ -114,7 +127,7 @@ def _run_powershell(script: str, kind: str = "Startup") -> OperationResult:
         return OperationResult.failure(
             f"{kind.upper().replace(' ', '_')}_SHORTCUT_CREATE_FAILED",
             f"{kind} Shortcut Could Not Be Created",
-            f"Windows could not create the Evanovar RAM {kind} shortcut.",
+            f"Windows could not create the Constantine AccManager {kind} shortcut.",
             detail=detail or f"PowerShell exit code: {completed.returncode}",
         )
     return OperationResult.success()
@@ -249,7 +262,7 @@ def enable_startup() -> OperationResult:
         script = _build_shortcut_script(
             shortcut_path,
             launch_result.data,
-            "Start Evanovar RAM with Windows",
+            "Start Constantine AccManager with Windows",
         )
         result = _run_powershell(script)
         if not result:
@@ -261,12 +274,13 @@ def enable_startup() -> OperationResult:
                 "Windows did not create the expected Startup shortcut.",
                 detail=f"Shortcut: {shortcut_path}",
             )
+        _remove_legacy_shortcut()
         return OperationResult.success(
-            "Evanovar RAM will start with Windows.",
+            "Constantine AccManager will start with Windows.",
             data={"shortcut_path": shortcut_path},
         )
     except Exception as exc:
-        return unexpected_result("Enabling Evanovar RAM at Windows startup", exc)
+        return unexpected_result("Enabling Constantine AccManager at Windows startup", exc)
 
 
 def disable_startup() -> OperationResult:
@@ -279,23 +293,24 @@ def disable_startup() -> OperationResult:
         )
 
     try:
+        _remove_legacy_shortcut()
         if os.path.isfile(shortcut_path):
             os.remove(shortcut_path)
         if os.path.exists(shortcut_path):
             return OperationResult.failure(
                 "STARTUP_SHORTCUT_REMOVE_FAILED",
                 "Startup Shortcut Could Not Be Removed",
-                "Windows did not remove the Evanovar RAM Startup shortcut.",
+                "Windows did not remove the Constantine AccManager Startup shortcut.",
                 detail=f"Shortcut: {shortcut_path}",
             )
         return OperationResult.success(
-            "Evanovar RAM will no longer start with Windows.",
+            "Constantine AccManager will no longer start with Windows.",
             data={"shortcut_path": shortcut_path},
         )
     except Exception as exc:
         return OperationResult.failure(
             "STARTUP_SHORTCUT_REMOVE_FAILED",
             "Startup Shortcut Could Not Be Removed",
-            "The Evanovar RAM Startup shortcut could not be removed.",
+            "The Constantine AccManager Startup shortcut could not be removed.",
             detail=f"{type(exc).__name__}: {exc}",
         )

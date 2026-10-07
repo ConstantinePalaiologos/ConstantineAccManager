@@ -329,7 +329,7 @@ def _get_diagnostics_root() -> str:
         os.makedirs(preferred, exist_ok=True)
         return preferred
     except Exception:
-        fallback = os.path.join(tempfile.gettempdir(), "EvanovarRAM")
+        fallback = os.path.join(tempfile.gettempdir(), "ConstantineAccManager")
         os.makedirs(fallback, exist_ok=True)
         return fallback
 
@@ -353,7 +353,7 @@ def report_exception(
     )
 
     details = [
-        "Evanovar RAM crash report",
+        "Constantine AccManager crash report",
         f"Timestamp: {_timestamp()}",
         f"Application version: {_APP_VERSION}",
         f"Mode: {'compiled' if getattr(sys, 'frozen', False) else 'source'}",
@@ -416,7 +416,7 @@ def _handle_unhandled_exception(exception_type, exception, traceback_object) -> 
     )
     location = crash_path or _SESSION_LOG_PATH or "AccountManagerData"
     show_native_error(
-        "Evanovar RAM Crashed",
+        "Constantine AccManager Crashed",
         "The application encountered an unexpected error.\n\n"
         f"Crash report:\n{location}",
     )
