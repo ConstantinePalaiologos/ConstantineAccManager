@@ -5290,7 +5290,7 @@ class AccountManagerUIQt(QMainWindow): # Main Window
     def _show_update_dialog(self, latest_version: str) -> None:
         dlg = QDialog(self)
         dlg.setWindowTitle("Update Available")
-        dlg.setFixedSize(440, 340)
+        dlg.setFixedSize(440, 290)
         dlg.setStyleSheet(f"""
             QDialog   {{ background: {BG}; }}
             QLabel    {{ color: {TEXT}; background: transparent; }}
@@ -5335,12 +5335,7 @@ class AccountManagerUIQt(QMainWindow): # Main Window
         status_lbl = QLabel("")
         status_lbl.setStyleSheet(f"color: {MUTED}; font-size: 11px;")
         status_lbl.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        status_lbl.setWordWrap(True)
         lay.addWidget(status_lbl)
-        if updater_mod.CUSTOM_BUILD:
-            dl_btn.setText("Automatic update disabled (custom build)")
-            dl_btn.setEnabled(False)
-            status_lbl.setText(updater_mod.CUSTOM_BUILD_UPDATE_MESSAGE)
 
         # Bottom buttons
         btn_row = QHBoxLayout()

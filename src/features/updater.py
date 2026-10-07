@@ -21,25 +21,16 @@ import requests
 
 from utils.app_paths import get_data_dir
 
-GITHUB_API = "https://api.github.com/repos/evanovar/RobloxAccountManager/releases/latest"
-RELEASES_PAGE = "https://github.com/evanovar/RobloxAccountManager/releases/latest"
+GITHUB_API = "https://api.github.com/repos/ConstantinePalaiologos/ConstantineAccManager/releases/latest"
+RELEASES_PAGE = "https://github.com/ConstantinePalaiologos/ConstantineAccManager/releases/latest"
 RELEASE_ASSET_PATTERN = re.compile(
-    r"^EvanovarRAM-v\d+\.\d+\.\d+(?:\.\d+)?\.exe$",
+    r"^ConstantineAccManager-v\d+\.\d+\.\d+(?:\.\d+)?\.exe$",
     re.IGNORECASE,
 )
 LEGACY_ASSET_NAMES = (
-    "EvanovarRAM.exe",
-    "RobloxAccountManager.exe",
+    "ConstantineAccManager.exe",
 )
 DOWNLOAD_HOST = "github.com"
-# This build carries local changes (Dummy accounts). Replacing it with the
-# official exe would silently drop them, so self-update is switched off.
-CUSTOM_BUILD = True
-CUSTOM_BUILD_UPDATE_MESSAGE = (
-    "Automatic update is disabled in Constantine AccManager because the "
-    "official release does not include its extra features. Use Manual "
-    "Download to see the new official version, then port the changes."
-)
 PROCESS_WAIT_SECONDS = 120
 REPLACE_WAIT_SECONDS = 30
 
@@ -85,7 +76,7 @@ def get_exe_asset() -> dict | None:
         release_tag = str(release.get("tag_name", "")).strip()
         if release_tag and not release_tag.lower().startswith("v"):
             release_tag = f"v{release_tag}"
-        expected_name = f"EvanovarRAM-{release_tag}.exe" if release_tag else ""
+        expected_name = f"ConstantineAccManager-{release_tag}.exe" if release_tag else ""
         preferred = next(
             (
                 asset
@@ -287,9 +278,6 @@ def download_update(
         update_directory = ""
         installer_started = False
         try:
-            if CUSTOM_BUILD:
-                on_done(False, CUSTOM_BUILD_UPDATE_MESSAGE)
-                return
             target = get_update_target()
             if not target:
                 on_done(
@@ -302,7 +290,7 @@ def download_update(
             on_progress(0)
             asset = get_exe_asset()
             if not asset:
-                on_done(False, "No Evanovar RAM executable was found in the latest release.")
+                on_done(False, "No Constantine AccManager executable was found in the latest release.")
                 return
 
             url, filename = asset["url"], asset["name"]
@@ -311,7 +299,7 @@ def download_update(
             print(f"[INFO] Downloading {filename} from {url}")
             on_progress(2)
 
-            update_directory = tempfile.mkdtemp(prefix="evanovar_ram_update_")
+            update_directory = tempfile.mkdtemp(prefix="constantine_accmanager_update_")
             source_path = os.path.join(update_directory, "update.exe")
 
             response = requests.get(url, stream=True, timeout=60)

@@ -81,8 +81,7 @@ class DownloadUpdateTests(unittest.TestCase):
             outcome["result"] = (success, message)
             finished.set()
 
-        with patch.object(updater, "CUSTOM_BUILD", False), \
-                patch.object(updater, "get_update_target", return_value="C:/app/RAM.exe"), \
+        with patch.object(updater, "get_update_target", return_value="C:/app/RAM.exe"), \
                 patch.object(updater, "get_exe_asset", return_value=asset), \
                 patch.object(updater.requests, "get", return_value=response), \
                 patch.object(updater, "_launch_installer") as launch:
@@ -120,32 +119,56 @@ class DownloadUpdateTests(unittest.TestCase):
         self.assertIn("interrupted", message)
         launch.assert_not_called()
 
-    def test_custom_build_never_downloads_or_replaces_itself(self):
-        finished = threading.Event()
-        outcome = {}
-
-        def on_done(success, message):
-            outcome["result"] = (success, message)
-            finished.set()
-
-        with patch.object(updater, "CUSTOM_BUILD", True), \
-                patch.object(updater, "get_exe_asset") as get_asset, \
-                patch.object(updater.requests, "get") as http_get, \
-                patch.object(updater, "_launch_installer") as launch:
-            updater.download_update(lambda _: None, on_done)
-            self.assertTrue(finished.wait(10))
-        success, message = outcome["result"]
-        self.assertFalse(success)
-        self.assertEqual(message, updater.CUSTOM_BUILD_UPDATE_MESSAGE)
-        get_asset.assert_not_called()
-        http_get.assert_not_called()
-        launch.assert_not_called()
-
     def test_untrusted_address_is_refused_before_downloading(self):
         (success, message), launch = self.run_download(self.asset(url="https://example.com/x.exe"), PAYLOAD)
         self.assertFalse(success)
         self.assertIn("github.com", message)
         launch.assert_not_called()
+
+
+class UpdateSourceTests(unittest.TestCase):
+    def test_updates_come_from_the_constantine_repository(self):
+        for address in (updater.GITHUB_API, updater.RELEASES_PAGE):
+            self.assertIn("ConstantinePalaiologos/ConstantineAccManager", address)
+            self.assertNotIn("evanovar", address.lower())
+
+    def test_only_constantine_release_files_are_recognised(self):
+        pattern = updater.RELEASE_ASSET_PATTERN
+        self.assertTrue(pattern.fullmatch("ConstantineAccManager-v2.7.2.1.exe"))
+        self.assertTrue(pattern.fullmatch("ConstantineAccManager-v3.0.0.exe"))
+        self.assertFalse(pattern.fullmatch("EvanovarRAM-v2.7.2.exe"))
+        self.assertFalse(pattern.fullmatch("ConstantineAccManager-v2.7.2.1.zip"))
+
+    def test_the_right_file_is_picked_from_a_release(self):
+        release = {
+            "tag_name": "v2.7.3.1",
+            "assets": [
+                {"name": "EvanovarRAM-v2.7.3.exe", "browser_download_url": "https://github.com/x/stock.exe"},
+                {
+                    "name": "ConstantineAccManager-v2.7.3.1.exe",
+                    "browser_download_url": "https://github.com/x/ours.exe",
+                    "size": 1234,
+                    "digest": "sha256:abc",
+                },
+            ],
+        }
+        response = MagicMock()
+        response.json.return_value = release
+        with patch.object(updater.requests, "get", return_value=response):
+            asset = updater.get_exe_asset()
+        self.assertEqual(asset["name"], "ConstantineAccManager-v2.7.3.1.exe")
+        self.assertEqual(asset["size"], 1234)
+        self.assertEqual(asset["digest"], "sha256:abc")
+
+    def test_a_release_without_our_file_offers_nothing(self):
+        release = {
+            "tag_name": "v9.9.9",
+            "assets": [{"name": "EvanovarRAM-v9.9.9.exe", "browser_download_url": "https://github.com/x/stock.exe"}],
+        }
+        response = MagicMock()
+        response.json.return_value = release
+        with patch.object(updater.requests, "get", return_value=response):
+            self.assertIsNone(updater.get_exe_asset())
 
 
 if __name__ == "__main__":
