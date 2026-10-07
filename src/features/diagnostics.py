@@ -460,7 +460,7 @@ def install(app_version: str) -> str:
             _SESSION_LOG_PATH,
             "a",
             encoding="utf-8",
-            buffering=8192,
+            buffering=1,
         )
     except OSError:
         _SESSION_LOG_HANDLE = None

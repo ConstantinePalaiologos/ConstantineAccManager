@@ -68,6 +68,7 @@ import features.color_themes as color_themes
 import features.cookie_validator as cookie_validator_mod
 import features.chromium as chromium_mod
 import features.diagnostics as diagnostics
+import features.dummy_accounts as dummy_accounts_mod
 import features.favorites as favorites_mod
 import features.groups as groups
 import features.headless_manager as headless_manager_mod
@@ -1332,13 +1333,20 @@ class _ThemePreview(QWidget):
         painter.end()
 
 
+_VIEW_NORMAL = "\x00normal"
+_VIEW_DUMMY = "\x00dummy"
+
+
 class AccountManagerUIQt(QMainWindow): # Main Window
     def __init__(self, manager, icon_path: str | None = None):
         super().__init__()
         self.manager = manager
         self.manager.set_pre_launch_hook(
-            roblox_settings_mod.apply_saved_customizations
+            lambda username=None: dummy_accounts_mod.apply_launch_profile(
+                self.manager, username
+            )
         )
+        self._dummy_trimmer = dummy_accounts_mod.DummyRamTrimmer(self.manager)
         self._last_operation_error = ("", 0.0)
         self._chromium_download_active = False
         self._chromium_status_result = None
@@ -1520,6 +1528,8 @@ class AccountManagerUIQt(QMainWindow): # Main Window
 
         if S.get("optimize_roblox_ram", False):
             self._start_ram_boost()
+
+        self._dummy_trimmer.start()
 
         if S.get("rename_roblox_windows", False):
             self._start_rename_windows()
@@ -3305,7 +3315,7 @@ class AccountManagerUIQt(QMainWindow): # Main Window
         content_stack = QStackedWidget()
         content_stack.setStyleSheet("background: transparent;")
 
-        CATEGORIES = ["General", "Roblox", "Themes", "Misc", "Developer"]
+        CATEGORIES = ["General", "Roblox", "Dummy", "Themes", "Misc", "Developer"]
         cat_buttons: list[QPushButton] = []
 
         def _switch_cat(idx: int):
@@ -4081,6 +4091,85 @@ class AccountManagerUIQt(QMainWindow): # Main Window
             self._on_roblox_advanced_auto_apply_toggle
         )
         f.addWidget(self._roblox_settings_auto_apply_chk)
+
+        f.addStretch(1)
+
+
+        # Dummy accounts
+        sa, f = _scrollable()
+        content_stack.addWidget(sa)
+        f.addWidget(_sec("DUMMY ACCOUNTS"))
+        _dummy_desc = QLabel(
+            "Accounts with the checkmark ticked at the right of the account "
+            "list launch with these settings. Applies the next time the "
+            "account is launched."
+        )
+        _dummy_desc.setStyleSheet(f"color: {MUTED}; font-size: 10px;")
+        _dummy_desc.setWordWrap(True)
+        f.addWidget(_dummy_desc)
+
+        _dummy_cfg = dummy_accounts_mod.get_dummy_settings()
+
+        def _dummy_row(label, tooltip, key, suffix):
+            row_lay = QHBoxLayout()
+            row_lay.setContentsMargins(20, 0, 0, 0)
+            lbl = QLabel(label)
+            lbl.setToolTip(tooltip)
+            row_lay.addWidget(lbl)
+            row_lay.addStretch(1)
+            spin = QSpinBox()
+            low, high = dummy_accounts_mod._LIMITS[key]
+            spin.setRange(low, high)
+            spin.setValue(_dummy_cfg[key])
+            if suffix:
+                spin.setSuffix(suffix)
+            spin.setFixedWidth(90)
+            spin.setButtonSymbols(QSpinBox.ButtonSymbols.NoButtons)
+            spin.valueChanged.connect(
+                lambda v, k=key: actions.save_ui_setting(k, v)
+            )
+            row_lay.addWidget(spin)
+            f.addLayout(row_lay)
+            return spin
+
+        self._sett_dummy_fps_spin = _dummy_row(
+            "Framerate Cap",
+            "FPS limit for dummy accounts.",
+            "dummy_framerate_cap", " FPS",
+        )
+        self._sett_dummy_quality_spin = _dummy_row(
+            "Graphics Quality",
+            "Start quality level for dummy accounts (1 = lowest, 10 = highest).",
+            "dummy_quality_level", "",
+        )
+        self._sett_dummy_ram_spin = _dummy_row(
+            "RAM Limit (MB)",
+            "A dummy Roblox process using more than this has its memory\n"
+            "moved out of RAM to disk (the pagefile), checked every 15 seconds.",
+            "dummy_ram_limit_mb", " MB",
+        )
+        self._sett_dummy_delay_spin = _dummy_row(
+            "Trim Delay",
+            "Wait this long after a dummy window starts before trimming its\n"
+            "memory, so the character can finish loading in first.",
+            "dummy_ram_trim_delay_sec", " s",
+        )
+        self._sett_dummy_free_ram_spin = _dummy_row(
+            "Min Free RAM to Launch",
+            "Before launching a dummy, wait until the PC has at least this\n"
+            "much free RAM. Stops a burst of windows loading in at once from\n"
+            "running the PC out of memory. Set to 0 to turn off.",
+            "dummy_min_free_ram_mb", " MB",
+        )
+        self._sett_dummy_hard_chk = _chk(
+            dummy_accounts_mod.HARD_LIMIT_KEY, "Hard limit",
+            "Make Windows keep each dummy window under the RAM Limit at all\n"
+            "times, instead of trimming it every 15 seconds and letting it grow\n"
+            "back in between. Memory stays lower, but a limit that is too small\n"
+            "can make the window stutter or use more CPU. Untick to go back to\n"
+            "periodic trimming.",
+        )
+        f.addLayout(_sub_indent(self._sett_dummy_hard_chk, 20))
 
         f.addStretch(1)
 
@@ -5192,7 +5281,7 @@ class AccountManagerUIQt(QMainWindow): # Main Window
     def _show_update_dialog(self, latest_version: str) -> None:
         dlg = QDialog(self)
         dlg.setWindowTitle("Update Available")
-        dlg.setFixedSize(440, 290)
+        dlg.setFixedSize(440, 340)
         dlg.setStyleSheet(f"""
             QDialog   {{ background: {BG}; }}
             QLabel    {{ color: {TEXT}; background: transparent; }}
@@ -5237,7 +5326,12 @@ class AccountManagerUIQt(QMainWindow): # Main Window
         status_lbl = QLabel("")
         status_lbl.setStyleSheet(f"color: {MUTED}; font-size: 11px;")
         status_lbl.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        status_lbl.setWordWrap(True)
         lay.addWidget(status_lbl)
+        if updater_mod.CUSTOM_BUILD:
+            dl_btn.setText("Automatic update disabled (custom build)")
+            dl_btn.setEnabled(False)
+            status_lbl.setText(updater_mod.CUSTOM_BUILD_UPDATE_MESSAGE)
 
         # Bottom buttons
         btn_row = QHBoxLayout()
@@ -6488,6 +6582,13 @@ class AccountManagerUIQt(QMainWindow): # Main Window
             self._stop_rename_windows()
         except Exception:
             pass
+        try:
+            self._dummy_trimmer.stop()
+            restored = dummy_accounts_mod.restore_normal_profile()
+            if not restored:
+                print(f"[WARNING] Could not restore normal Roblox settings: {restored.message}")
+        except Exception as e:
+            print(f"[WARNING] Dummy account cleanup failed: {e}")
         # Cleanup drag-drop filter
         try:
             if hasattr(self, "_drag_filter"):
@@ -6840,7 +6941,13 @@ class AccountManagerUIQt(QMainWindow): # Main Window
         )
 
         # Filter by groups
-        if self._current_group is not None:
+        if self._current_group in (_VIEW_NORMAL, _VIEW_DUMMY):
+            want_dummy = self._current_group == _VIEW_DUMMY
+            account_items = [
+                (u, d) for u, d in account_items
+                if (isinstance(d, dict) and bool(d.get("dummy", False))) == want_dummy
+            ]
+        elif self._current_group is not None:
             assignments = groups.get_assignments()
             account_items = [
                 (u, d) for u, d in account_items
@@ -6969,6 +7076,24 @@ class AccountManagerUIQt(QMainWindow): # Main Window
                 self._activity_labels[username] = (ram_lbl, cpu_lbl)
                 activity_container.setVisible(username in self._activity_snapshot)
             row_lay.addStretch(1)
+
+            dummy_chk = QCheckBox()
+            dummy_chk.setToolTip(
+                "Low-resource account: launches with low FPS and minimum graphics,\n"
+                "and its memory is moved out of RAM to disk. Takes effect the next\n"
+                "time this account is launched.\n"
+                "Configure under Settings > Dummy."
+            )
+            dummy_chk.setChecked(
+                bool(data.get("dummy", False)) if isinstance(data, dict) else False
+            )
+            def _on_dummy_toggled(checked, u=username):
+                self.manager.set_account_dummy(u, checked)
+                if self._current_group in (_VIEW_NORMAL, _VIEW_DUMMY):
+                    QTimer.singleShot(0, self._refresh_account_list)
+
+            dummy_chk.toggled.connect(_on_dummy_toggled)
+            row_lay.addWidget(dummy_chk)
             row.setFixedHeight(ITEM_H)
 
             if flagged:
@@ -7018,6 +7143,20 @@ class AccountManagerUIQt(QMainWindow): # Main Window
         all_btn.setChecked(self._current_group is None)
         all_btn.clicked.connect(lambda: self._on_group_tab_clicked(None))
         self._group_bar_lay.addWidget(all_btn)
+
+        for view_key, view_label, view_tip in (
+            (_VIEW_NORMAL, "Normal", "Show only accounts without the low-resource checkmark."),
+            (_VIEW_DUMMY, "Dummy", "Show only accounts with the low-resource checkmark."),
+        ):
+            view_btn = QPushButton(view_label)
+            view_btn.setObjectName("groupTab")
+            view_btn.setCheckable(True)
+            view_btn.setChecked(self._current_group == view_key)
+            view_btn.setToolTip(view_tip)
+            view_btn.clicked.connect(
+                lambda _=False, k=view_key: self._on_group_tab_clicked(k)
+            )
+            self._group_bar_lay.addWidget(view_btn)
 
         for gname in groups.get_group_names():
             btn = QPushButton(gname)

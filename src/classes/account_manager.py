@@ -221,6 +221,8 @@ class RobloxAccountManager:
         if isinstance(existing, dict):
             if not record.get('note'):
                 record['note'] = existing.get('note', '')
+            if existing.get('dummy') and 'dummy' not in record:
+                record['dummy'] = True
         return record
 
     def save_accounts(self):
@@ -1130,7 +1132,7 @@ class RobloxAccountManager:
 
         if self._pre_launch_hook:
             try:
-                hook_result = self._pre_launch_hook()
+                hook_result = self._pre_launch_hook(username)
                 if hook_result is not None and not hook_result:
                     print(
                         f"[ERROR] Pre-launch settings apply failed: "
@@ -1188,6 +1190,20 @@ class RobloxAccountManager:
         if username in self.accounts:
             return self.accounts[username].get('note', '')
         return ''
+
+    def set_account_dummy(self, username, is_dummy):
+        """Mark or unmark an account as a dummy account"""
+        with self._accounts_lock:
+            if username not in self.accounts:
+                print(f"[ERROR] Account '{username}' not found")
+                return False
+            if is_dummy:
+                self.accounts[username]['dummy'] = True
+            else:
+                self.accounts[username].pop('dummy', None)
+            self.save_accounts()
+        print(f"[INFO] Dummy mode {'enabled' if is_dummy else 'disabled'} for account: {username}")
+        return True
     
     def get_encryption_method(self):
         """Get current encryption method"""

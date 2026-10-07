@@ -45,6 +45,11 @@ def _get_user_id_from_pid(
 ) -> str | None:
     try:
         proc = psutil.Process(pid)
+        # The log file this window actually has open is exact; the launch-time
+        # guess below can miss when a window was slow to start.
+        open_log_user_id = _get_user_id_from_open_log(proc, used_logs)
+        if open_log_user_id:
+            return open_log_user_id
         create_utc = datetime.fromtimestamp(
             proc.create_time(),
             tz=timezone.utc,
@@ -76,6 +81,73 @@ def _get_user_id_from_pid(
         return None
     except Exception:
         return None
+    return None
+
+
+def _load_log_entry(log_path: str, log_time: datetime) -> RobloxLogEntry | None:
+    stat_result = os.stat(log_path)
+    cache_key = (stat_result.st_mtime_ns, stat_result.st_size)
+    with _LOG_CACHE_LOCK:
+        cached = _LOG_CACHE.get(log_path)
+    if cached is not None and cached[:2] == cache_key:
+        return cached[2]
+
+    with open(
+        log_path,
+        "r",
+        encoding="utf-8",
+        errors="ignore",
+    ) as handle:
+        content = handle.read(50_000)
+    entry = None
+    content_lower = content.lower()
+    if "userid:" in content_lower:
+        user_id = content_lower.split("userid:", 1)[1].split(",", 1)[0].strip()
+        if user_id.isdigit():
+            tracker_match = _TRACKER_PATTERN.search(content)
+            entry = RobloxLogEntry(
+                timestamp=log_time,
+                path=log_path,
+                user_id=user_id,
+                browser_tracker_id=tracker_match.group(1) if tracker_match else "",
+            )
+    with _LOG_CACHE_LOCK:
+        _LOG_CACHE[log_path] = (*cache_key, entry)
+    return entry
+
+
+def _get_user_id_from_open_log(
+    proc: psutil.Process,
+    used_logs: set[str] | None = None,
+) -> str | None:
+    logs_dir = os.path.join(os.getenv("LOCALAPPDATA", ""), "Roblox", "logs")
+    try:
+        opened_files = proc.open_files()
+    except (
+        OSError,
+        psutil.NoSuchProcess,
+        psutil.AccessDenied,
+        psutil.ZombieProcess,
+    ):
+        return None
+    for opened in opened_files:
+        filename = os.path.basename(str(getattr(opened, "path", "") or ""))
+        lowered = filename.lower()
+        if not lowered.endswith("_last.log") or "crashhandler" in lowered:
+            continue
+        match = re.search(r"(\d{8}T\d{6}Z)", filename)
+        if not match:
+            continue
+        try:
+            log_time = datetime.strptime(match.group(1), "%Y%m%dT%H%M%SZ")
+            log_path = os.path.join(logs_dir, filename)
+            entry = _load_log_entry(log_path, log_time)
+        except (OSError, UnicodeError, ValueError):
+            continue
+        if entry is not None:
+            if used_logs is not None:
+                used_logs.add(entry.path)
+            return entry.user_id
     return None
 
 
@@ -112,46 +184,9 @@ def get_roblox_log_entries(
                 continue
             if latest_time is not None and log_time > latest_time:
                 continue
-            stat_result = os.stat(log_path)
-            cache_key = (stat_result.st_mtime_ns, stat_result.st_size)
-            with _LOG_CACHE_LOCK:
-                cached = _LOG_CACHE.get(log_path)
-            if cached is not None and cached[:2] == cache_key:
-                entry = cached[2]
-                if entry is not None:
-                    entries.append(entry)
-                continue
-
-            with open(
-                log_path,
-                "r",
-                encoding="utf-8",
-                errors="ignore",
-            ) as handle:
-                content = handle.read(50_000)
-            entry = None
-            content_lower = content.lower()
-            if "userid:" not in content_lower:
-                with _LOG_CACHE_LOCK:
-                    _LOG_CACHE[log_path] = (*cache_key, None)
-                continue
-            user_id = content_lower.split("userid:", 1)[1].split(",", 1)[0].strip()
-            if user_id.isdigit():
-                tracker_match = _TRACKER_PATTERN.search(content)
-                browser_tracker_id = (
-                    tracker_match.group(1)
-                    if tracker_match
-                    else ""
-                )
-                entry = RobloxLogEntry(
-                    timestamp=log_time,
-                    path=log_path,
-                    user_id=user_id,
-                    browser_tracker_id=browser_tracker_id,
-                )
+            entry = _load_log_entry(log_path, log_time)
+            if entry is not None:
                 entries.append(entry)
-            with _LOG_CACHE_LOCK:
-                _LOG_CACHE[log_path] = (*cache_key, entry)
         except (OSError, UnicodeError, ValueError):
             continue
 

@@ -81,7 +81,8 @@ class DownloadUpdateTests(unittest.TestCase):
             outcome["result"] = (success, message)
             finished.set()
 
-        with patch.object(updater, "get_update_target", return_value="C:/app/RAM.exe"), \
+        with patch.object(updater, "CUSTOM_BUILD", False), \
+                patch.object(updater, "get_update_target", return_value="C:/app/RAM.exe"), \
                 patch.object(updater, "get_exe_asset", return_value=asset), \
                 patch.object(updater.requests, "get", return_value=response), \
                 patch.object(updater, "_launch_installer") as launch:
@@ -117,6 +118,27 @@ class DownloadUpdateTests(unittest.TestCase):
         )
         self.assertFalse(success)
         self.assertIn("interrupted", message)
+        launch.assert_not_called()
+
+    def test_custom_build_never_downloads_or_replaces_itself(self):
+        finished = threading.Event()
+        outcome = {}
+
+        def on_done(success, message):
+            outcome["result"] = (success, message)
+            finished.set()
+
+        with patch.object(updater, "CUSTOM_BUILD", True), \
+                patch.object(updater, "get_exe_asset") as get_asset, \
+                patch.object(updater.requests, "get") as http_get, \
+                patch.object(updater, "_launch_installer") as launch:
+            updater.download_update(lambda _: None, on_done)
+            self.assertTrue(finished.wait(10))
+        success, message = outcome["result"]
+        self.assertFalse(success)
+        self.assertEqual(message, updater.CUSTOM_BUILD_UPDATE_MESSAGE)
+        get_asset.assert_not_called()
+        http_get.assert_not_called()
         launch.assert_not_called()
 
     def test_untrusted_address_is_refused_before_downloading(self):

@@ -32,6 +32,14 @@ LEGACY_ASSET_NAMES = (
     "RobloxAccountManager.exe",
 )
 DOWNLOAD_HOST = "github.com"
+# This build carries local changes (Dummy accounts). Replacing it with the
+# official exe would silently drop them, so self-update is switched off.
+CUSTOM_BUILD = True
+CUSTOM_BUILD_UPDATE_MESSAGE = (
+    "Automatic update is disabled in this custom build because the official "
+    "release does not include the Dummy account feature. Ask Claude to port "
+    "the new version instead."
+)
 PROCESS_WAIT_SECONDS = 120
 REPLACE_WAIT_SECONDS = 30
 
@@ -279,6 +287,9 @@ def download_update(
         update_directory = ""
         installer_started = False
         try:
+            if CUSTOM_BUILD:
+                on_done(False, CUSTOM_BUILD_UPDATE_MESSAGE)
+                return
             target = get_update_target()
             if not target:
                 on_done(
